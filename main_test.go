@@ -19,9 +19,9 @@ func TestLoadConfigNormalizesPaths(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Write a repos.json
+	// Write a config file
 	reposJson := `{"repos":[{"path":"repo1","ref":"main","submodules":false}]}`
-	if err := os.WriteFile("repos.json", []byte(reposJson), 0o644); err != nil {
+	if err := os.WriteFile(ConfigFile, []byte(reposJson), 0o644); err != nil {
 		t.Fatal(err)
 	}
 

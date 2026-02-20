@@ -7,8 +7,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 )
+
+const ConfigFile = "git-workspace.json"
 
 type Runner interface {
 	Run(name string, args ...string) error
@@ -26,16 +27,38 @@ type Config struct {
 }
 
 func printUsage(rc int) {
-	cmds := []string{
-		"checkout",
-		"config",
-		"fast-forward",
-		"fetch",
-		"run",
-		"status",
-		"update-submodules",
-	}
-	fmt.Printf("Usage: git workspace {%s}\n", strings.Join(cmds, "|"))
+	fmt.Printf(`Usage: git workspace [COMMAND]
+
+Run commands across a configured set of Git repositories.
+
+Commands:
+    checkout                Check out the configured ref in each repo
+    config                  Apply workspace git config settings to each repo
+    ff, fast-forward        Pull the latest changes using fast-forward only
+    fetch                   Fetch from origin (including tags and pruning)
+    help                    Print usage information and exit
+    run <cmd>               Run an arbitrary command in each repo
+    status                  Show the working tree status of each repo
+    sup, update-submodules  Initialize and update submodules recursively
+
+Details:
+    Workspace configuration is read from %s in the current working directory.
+
+    Example:
+    {
+      "git_config": {  // optional key/value pairs applied via 'git config'
+        "user.email": "you@example.com"
+      },
+      "repos": [
+        {
+          "path": "./path/to/repo",  // Relative or absolute path to repo
+          "ref": "main",             // branch/tag/commit for checkout
+          "submodules": true         // Enable or disable submodules support
+        },
+        ...
+      ]
+    }
+`, ConfigFile)
 	os.Exit(rc)
 }
 
@@ -43,12 +66,18 @@ func main() {
 	if len(os.Args) < 2 {
 		printUsage(0)
 	}
-
-	cfg, err := loadConfig()
-	check(err, "could not load config")
-
 	cmd := os.Args[1]
 	args := os.Args[2:]
+
+	if cmd == "help" {
+		printUsage(0)
+	}
+
+	cfg, err := loadConfig()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: could not load %s: %v\n", ConfigFile, err)
+		os.Exit(1)
+	}
 
 	for _, r := range cfg.Repos {
 		repo := NewRepo(&r, CommandRunner{})
@@ -105,15 +134,15 @@ func check(err error, msg string) {
 }
 
 func loadConfig() (*Config, error) {
-	f, err := os.Open("repos.json")
+	f, err := os.Open(ConfigFile)
 	if err != nil {
-		return nil, fmt.Errorf("could not open repos.json: %w", err)
+		return nil, err
 	}
 	defer f.Close()
 	dec := json.NewDecoder(f)
 	cfg := new(Config)
 	if err := dec.Decode(cfg); err != nil && err != io.EOF {
-		return nil, fmt.Errorf("could not decode repos.json: %w", err)
+		return nil, fmt.Errorf("could not decode %s: %w", ConfigFile, err)
 	}
 
 	// Normalize paths: make them relative to cwd if they're not absolute
