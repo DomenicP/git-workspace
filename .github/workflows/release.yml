@@ -1,0 +1,32 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  release:
+    name: Build and Publish Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Build release binaries
+        run: |
+          GOOS=linux   GOARCH=amd64 go build -o dist/git-workspace-linux-amd64   .
+          GOOS=linux   GOARCH=arm64 go build -o dist/git-workspace-linux-arm64   .
+          GOOS=darwin  GOARCH=amd64 go build -o dist/git-workspace-darwin-amd64  .
+          GOOS=darwin  GOARCH=arm64 go build -o dist/git-workspace-darwin-arm64  .
+          GOOS=windows GOARCH=amd64 go build -o dist/git-workspace-windows-amd64.exe .
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
