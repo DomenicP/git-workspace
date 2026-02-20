@@ -10,18 +10,19 @@ import (
 	"strings"
 )
 
-var GitConfig = map[string]string{
-	"commit.gpgsign": "true",
+type Runner interface {
+	Run(name string, args ...string) error
 }
 
-type Repo struct {
+type RepoConfig struct {
 	Path       string `json:"path"`
 	Ref        string `json:"ref"`
 	Submodules bool   `json:"submodules"`
 }
 
 type Config struct {
-	Repos []Repo `json:"repos"`
+	GitConfig map[string]string `json:"git_config,omitempty"`
+	Repos     []RepoConfig      `json:"repos"`
 }
 
 func printUsage(rc int) {
@@ -49,8 +50,10 @@ func main() {
 	cmd := os.Args[1]
 	args := os.Args[2:]
 
-	for _, repo := range cfg.Repos {
-		if _, err := os.Stat(repo.Path); os.IsNotExist(err) {
+	for _, r := range cfg.Repos {
+		repo := NewRepo(&r, CommandRunner{})
+
+		if repo.PathExist() {
 			fmt.Fprintf(os.Stderr, "warning: path %s does not exist\n", repo.Path)
 			continue
 		}
@@ -62,7 +65,7 @@ func main() {
 		case "checkout":
 			err = repo.Checkout()
 		case "config":
-			err = repo.Config()
+			err = repo.Config(cfg.GitConfig)
 		case "fast-forward", "ff":
 			err = repo.FastForward()
 		case "fetch":
@@ -85,61 +88,13 @@ func main() {
 	}
 }
 
-// Repo Commands
+type CommandRunner struct{}
 
-func (r *Repo) Checkout() error {
-	if r.Ref == "" {
-		return fmt.Errorf("no ref specified for %s", r.Path)
-	}
-	return runGit("checkout", r.Ref)
-}
-
-func (r *Repo) Config() error {
-	for k, v := range GitConfig {
-		if err := runGit("config", k, v); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (r *Repo) FastForward() error {
-	return runGit("pull", "--ff-only")
-}
-
-func (r *Repo) Fetch() error {
-	return runGit("fetch", "-pt")
-}
-
-func (r *Repo) Run(args []string) error {
-	if len(args) == 0 {
-		return fmt.Errorf("run requires a command to execute")
-	}
-	cmd := exec.Command(args[0], args[1:]...)
+func (c CommandRunner) Run(name string, args ...string) error {
+	cmd := exec.Command(name, args...)
+	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
-	return cmd.Run()
-}
-
-func (r *Repo) Status() error {
-	return runGit("status")
-}
-
-func (r *Repo) UpdateSubmodules() error {
-	if r.Submodules {
-		return runGit("submodule", "update", "--init", "--recursive")
-	}
-	return nil
-}
-
-// Lib
-
-func runGit(args ...string) error {
-	cmd := exec.Command("git", args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
 	return cmd.Run()
 }
 
