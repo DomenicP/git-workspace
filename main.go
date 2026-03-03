@@ -35,14 +35,14 @@ func printUsage(rc int) {
 Run commands across a configured set of Git repositories.
 
 Commands:
-    checkout                Check out the configured ref in each repo
+    co, checkout            Check out the configured ref in each repo
     clone                   Ensure all referenced repositories are cloned
     config                  Apply workspace git config settings to each repo
     ff, fast-forward        Pull the latest changes using fast-forward only
     fetch                   Fetch from origin (including tags and pruning)
     help                    Print usage information and exit
     run <cmd>               Run an arbitrary command in each repo
-    status                  Show the working tree status of each repo
+    st, status              Show the working tree status of each repo
     sup, update-submodules  Initialize and update submodules recursively
     version                 Print version information and then exit
 
@@ -116,7 +116,7 @@ func main() {
 		check(os.Chdir(repo.Path), "chdir failed")
 
 		switch cmd {
-		case "checkout":
+		case "checkout", "co":
 			err = repo.Checkout()
 		case "config":
 			err = repo.Config(cfg.GitConfig)
@@ -126,7 +126,7 @@ func main() {
 			err = repo.Fetch()
 		case "run":
 			err = repo.Run(args)
-		case "status":
+		case "status", "st":
 			err = repo.Status()
 		case "update-submodules", "sup":
 			err = repo.UpdateSubmodules()
