@@ -14,7 +14,7 @@
       packages = forAllSystems (pkgs: {
         default = pkgs.buildGoModule {
           pname = "git-workspace";
-          version = "0.1.0";
+          version = "0.2.0";
           src = ./.;
           vendorHash = null;
         };

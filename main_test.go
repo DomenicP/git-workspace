@@ -21,12 +21,12 @@ func TestLoadConfigNormalizesPaths(t *testing.T) {
 
 	// Write a config file
 	reposJson := `{"repos":[{"path":"repo1","ref":"main","submodules":false}]}`
-	if err := os.WriteFile(ConfigFile, []byte(reposJson), 0o644); err != nil {
+	if err := os.WriteFile(CONFIG_FILE, []byte(reposJson), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
 	// Try loading the config
-	cfg, err := loadConfig()
+	cfg, err := loadConfig(CONFIG_FILE)
 	if err != nil {
 		t.Fatalf("loadConfig error: %v", err)
 	}

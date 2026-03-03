@@ -9,16 +9,19 @@ import (
 	"path/filepath"
 )
 
-const ConfigFile = "git-workspace.json"
+const (
+	CONFIG_FILE = "git-workspace.json"
+	VERSION     = "0.2.0"
+)
 
 type Runner interface {
 	Run(name string, args ...string) error
 }
 
 type RepoConfig struct {
-	Path       string `json:"path"`
-	Ref        string `json:"ref"`
-	Submodules bool   `json:"submodules"`
+	Path   string `json:"path"`
+	Remote string `json:"remote"`
+	Ref    string `json:"ref"`
 }
 
 type Config struct {
@@ -33,6 +36,7 @@ Run commands across a configured set of Git repositories.
 
 Commands:
     checkout                Check out the configured ref in each repo
+    clone                   Ensure all referenced repositories are cloned
     config                  Apply workspace git config settings to each repo
     ff, fast-forward        Pull the latest changes using fast-forward only
     fetch                   Fetch from origin (including tags and pruning)
@@ -40,6 +44,7 @@ Commands:
     run <cmd>               Run an arbitrary command in each repo
     status                  Show the working tree status of each repo
     sup, update-submodules  Initialize and update submodules recursively
+    version                 Print version information and then exit
 
 Details:
     Workspace configuration is read from %s in the current working directory.
@@ -52,14 +57,20 @@ Details:
       "repos": [
         {
           "path": "./path/to/repo",  // Relative or absolute path to repo
+          "remote": "...",           // Remote URL for clone
           "ref": "main",             // branch/tag/commit for checkout
           "submodules": true         // Enable or disable submodules support
         },
         ...
       ]
     }
-`, ConfigFile)
+`, CONFIG_FILE)
 	os.Exit(rc)
+}
+
+func printVersion() {
+	fmt.Printf("%s\n", VERSION)
+	os.Exit(0)
 }
 
 func main() {
@@ -72,17 +83,31 @@ func main() {
 	if cmd == "help" {
 		printUsage(0)
 	}
+	if cmd == "version" {
+		printVersion()
+	}
 
-	cfg, err := loadConfig()
+	cfg, err := loadConfig(CONFIG_FILE)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: could not load %s: %v\n", ConfigFile, err)
+		fmt.Fprintf(os.Stderr, "error: could not load %s: %v\n", CONFIG_FILE, err)
 		os.Exit(1)
 	}
 
 	for _, r := range cfg.Repos {
-		repo := NewRepo(&r, CommandRunner{})
+		repo := NewRepo(r, CommandRunner{})
 
-		if repo.PathExist() {
+		// Special check for clone command
+		if cmd == "clone" {
+			fmt.Printf("cloning %s to %s\n", repo.Remote, repo.Path)
+			err = repo.Clone()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "command %s failed for %s: %v\n", cmd, repo.Path, err)
+			}
+			continue
+		}
+
+		// For all other commands, the path should exist
+		if !repo.PathExist() {
 			fmt.Fprintf(os.Stderr, "warning: path %s does not exist\n", repo.Path)
 			continue
 		}
@@ -133,8 +158,8 @@ func check(err error, msg string) {
 	}
 }
 
-func loadConfig() (*Config, error) {
-	f, err := os.Open(ConfigFile)
+func loadConfig(configFile string) (*Config, error) {
+	f, err := os.Open(configFile)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +167,7 @@ func loadConfig() (*Config, error) {
 	dec := json.NewDecoder(f)
 	cfg := new(Config)
 	if err := dec.Decode(cfg); err != nil && err != io.EOF {
-		return nil, fmt.Errorf("could not decode %s: %w", ConfigFile, err)
+		return nil, fmt.Errorf("could not decode %s: %w", configFile, err)
 	}
 
 	// Normalize paths: make them relative to cwd if they're not absolute
