@@ -1,16 +1,17 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 )
 
 type Repo struct {
-	*RepoConfig
+	RepoConfig
 	runner Runner
 }
 
-func NewRepo(cfg *RepoConfig, runner Runner) *Repo {
+func NewRepo(cfg RepoConfig, runner Runner) *Repo {
 	return &Repo{
 		RepoConfig: cfg,
 		runner:     runner,
@@ -19,7 +20,7 @@ func NewRepo(cfg *RepoConfig, runner Runner) *Repo {
 
 func (r *Repo) PathExist() bool {
 	_, err := os.Stat(r.Path)
-	return os.IsNotExist(err)
+	return !errors.Is(err, os.ErrNotExist)
 }
 
 func (r *Repo) Checkout() error {
@@ -27,6 +28,13 @@ func (r *Repo) Checkout() error {
 		return fmt.Errorf("no ref specified for %s", r.Path)
 	}
 	return r.runner.Run("git", "checkout", r.Ref)
+}
+
+func (r *Repo) Clone() error {
+	if !r.PathExist() {
+		return r.runner.Run("git", "clone", r.Remote, r.Path)
+	}
+	return nil
 }
 
 func (r *Repo) Config(cfg map[string]string) error {
@@ -61,8 +69,5 @@ func (r *Repo) Status() error {
 }
 
 func (r *Repo) UpdateSubmodules() error {
-	if r.Submodules {
-		return r.runner.Run("git", "submodule", "update", "--init", "--recursive")
-	}
-	return nil
+	return r.runner.Run("git", "submodule", "update", "--init", "--recursive")
 }
