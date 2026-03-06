@@ -7,6 +7,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"text/template"
+
+	"charm.land/lipgloss/v2"
+	"golang.org/x/term"
 )
 
 const (
@@ -130,7 +133,7 @@ func main() {
 			continue
 		}
 
-		fmt.Printf("===== Entering: %s =====\n", repo.Path)
+		printHeader(repo.Path)
 		must(os.Chdir(repo.Path), "chdir failed")
 
 		switch cmd {
@@ -158,7 +161,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "error: command %s failed for %s: %v\n", cmd, repo.Path, err)
 		}
 
-		fmt.Printf("===== Exiting: %s =====\n\n", repo.Path)
+		fmt.Println()
 	}
 }
 
@@ -208,4 +211,15 @@ func must(err error, msg string) {
 	if err != nil {
 		panic(msg + ": " + err.Error())
 	}
+}
+
+func printHeader(msg string) {
+	width, _, _ := term.GetSize(int(os.Stdout.Fd()))
+	style := lipgloss.NewStyle().
+		Width(width).
+		Align(lipgloss.Center).
+		Border(lipgloss.NormalBorder()).
+		Foreground(lipgloss.Green).
+		Bold(true)
+	fmt.Println(style.Render(msg))
 }
