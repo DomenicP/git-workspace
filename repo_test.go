@@ -6,117 +6,119 @@ import (
 	"testing"
 )
 
-func TestRepo_Checkout(t *testing.T) {
-	r, runner := defaultFakeRepo()
-	assertNotError(t, r.Checkout())
-	runner.assertHasCalls(t, "git checkout main")
+func TestRepoCommands(t *testing.T) {
+	tests := []struct {
+		name  string
+		cmd   func(Repo) error
+		calls []string
+	}{
+		{"Checkout", Repo.Checkout, []string{"git checkout main"}},
+		{"FastForward", Repo.FastForward, []string{"git pull --ff-only"}},
+		{"Fetch", Repo.Fetch, []string{"git fetch"}},
+		{"Push", Repo.Push, []string{"git push"}},
+		{"Status", Repo.Status, []string{"git status"}},
+		{
+			"UpdateSubmodules",
+			Repo.UpdateSubmodules,
+			[]string{"git submodule update --init --recursive"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r, runner := defaultFakeRepo()
+			if err := tt.cmd(r); err != nil {
+				t.Errorf("err=%v", err)
+			}
+			runner.AssertHasCalls(t, tt.calls...)
+		})
+	}
 }
 
-func TestRepo_Checkout_ErrorWhenNoRef(t *testing.T) {
+func TestRepoCheckoutErrorWhenNoRef(t *testing.T) {
 	r, runner := fakeRepo(".", "git@github.com:Foo/bar.git", "")
-	assertError(t, r.Checkout())
-	runner.assertNoCalls(t)
+	if err := r.Checkout(); err == nil {
+		t.Errorf("err=nil")
+	}
+	runner.AssertNoCalls(t)
 }
 
-func TestRepo_Clone_CloneWhenDirDoesNotExist(t *testing.T) {
+func TestRepoCloneCloneWhenDirDoesNotExist(t *testing.T) {
 	r, runner := fakeRepo("/fake/dir/plz", "git@github.com:Foo/bar.git", "develop")
-	r.Clone()
-	runner.assertHasCalls(t, "git clone git@github.com:Foo/bar.git /fake/dir/plz")
+	if err := r.Clone(); err != nil {
+		t.Errorf("err=%v", err)
+	}
+	runner.AssertHasCalls(t, "git clone git@github.com:Foo/bar.git /fake/dir/plz")
 }
 
-func TestRepo_Clone_NoCloneWhenDirExists(t *testing.T) {
+func TestRepoCloneNoCloneWhenDirExists(t *testing.T) {
 	tmp := t.TempDir()
 	r, runner := fakeRepo(tmp, "git@github.com:Foo/bar.git", "develop")
-	r.Clone()
-	runner.assertNoCalls(t)
+	if err := r.Clone(); err != nil {
+		t.Errorf("err=%v", err)
+	}
+	runner.AssertNoCalls(t)
 }
 
-func TestRepo_Config_NoEntriesNoCalls(t *testing.T) {
+func TestRepoConfigNoEntriesNoCalls(t *testing.T) {
 	r, runner := defaultFakeRepo()
-	assertNotError(t, r.Config(nil))
-	runner.assertNoCalls(t)
+	if err := r.Config(nil); err != nil {
+		t.Errorf("err=%v", err)
+	}
+	runner.AssertNoCalls(t)
 }
 
-func TestRepo_Config_OneEntryOneCall(t *testing.T) {
+func TestRepoConfigOneEntryOneCall(t *testing.T) {
 	r, runner := defaultFakeRepo()
 	gitCfg := map[string]string{"commit.gpgsign": "true"}
-	assertNotError(t, r.Config(gitCfg))
-	runner.assertHasCalls(t, "git config commit.gpgsign true")
+	if err := r.Config(gitCfg); err != nil {
+		t.Errorf("err=%v", err)
+	}
+	runner.AssertHasCalls(t, "git config commit.gpgsign true")
 }
 
-func TestRepo_Config_MultipleEntriesMultipleCalls(t *testing.T) {
+func TestRepoConfigMultipleEntriesMultipleCalls(t *testing.T) {
 	r, runner := defaultFakeRepo()
 	gitCfg := map[string]string{
 		"commit.gpgsign": "true",
 		"foo":            "bar",
 	}
-	assertNotError(t, r.Config(gitCfg))
-	runner.assertHasCallsUnordered(
+	if err := r.Config(gitCfg); err != nil {
+		t.Errorf("err=%v", err)
+	}
+	runner.AssertHasCallsUnordered(
 		t,
 		"git config commit.gpgsign true",
 		"git config foo bar",
 	)
 }
 
-func TestRepo_FastForward(t *testing.T) {
+func TestRepoRunNoArgs(t *testing.T) {
 	r, runner := defaultFakeRepo()
-	assertNotError(t, r.FastForward())
-	runner.assertHasCalls(t, "git pull --ff-only")
+	if err := r.Run(nil); err == nil {
+		t.Errorf("err=nil")
+	}
+	runner.AssertNoCalls(t)
 }
 
-func TestRepo_Fetch(t *testing.T) {
+func TestRepoRunWithArgs(t *testing.T) {
 	r, runner := defaultFakeRepo()
-	assertNotError(t, r.Fetch())
-	runner.assertHasCalls(t, "git fetch -pt")
+	if err := r.Run([]string{"echo", "hello"}); err != nil {
+		t.Errorf("err=%v", err)
+	}
+	runner.AssertHasCalls(t, "echo hello")
 }
 
-func TestRepo_Run_NoArgs(t *testing.T) {
-	r, runner := defaultFakeRepo()
-	err := r.Run(nil)
-	assertError(t, err)
-	runner.assertNoCalls(t)
-}
-
-func TestRepo_Run_WithArgs(t *testing.T) {
-	r, runner := defaultFakeRepo()
-	assertNotError(t, r.Run([]string{"echo", "hello"}))
-	runner.assertHasCalls(t, "echo hello")
-}
-
-func TestRepo_Status(t *testing.T) {
-	r, runner := defaultFakeRepo()
-	assertNotError(t, r.Status())
-	runner.assertHasCalls(t, "git status")
-}
-
-func TestRepo_UpdateSubmodules(t *testing.T) {
-	r, runner := defaultFakeRepo()
-	assertNotError(t, r.UpdateSubmodules())
-	runner.assertHasCalls(t, "git submodule update --init --recursive")
-}
-
-// Fake runner
-
-type fakeRunner struct {
+type FakeRunner struct {
 	calls []string
 }
 
-func (f *fakeRunner) Run(name string, args ...string) error {
+func (f *FakeRunner) Run(name string, args ...string) error {
 	f.calls = append(f.calls, name+" "+strings.Join(args, " "))
 	return nil
 }
 
-// Assertions
-
-func (f *fakeRunner) assertCallCount(t *testing.T, calls ...string) {
-	expectedCount := len(calls)
-	actualCount := len(f.calls)
-	if expectedCount != actualCount {
-		t.Errorf("expected %d call(s), actual %d: %#v", expectedCount, actualCount, f.calls)
-	}
-}
-
-func (f *fakeRunner) assertHasCalls(t *testing.T, calls ...string) {
+func (f *FakeRunner) AssertHasCalls(t *testing.T, calls ...string) {
+	t.Helper()
 	f.assertCallCount(t, calls...)
 	for i, expectedCall := range calls {
 		actualCall := f.calls[i]
@@ -126,7 +128,8 @@ func (f *fakeRunner) assertHasCalls(t *testing.T, calls ...string) {
 	}
 }
 
-func (f *fakeRunner) assertHasCallsUnordered(t *testing.T, calls ...string) {
+func (f *FakeRunner) AssertHasCallsUnordered(t *testing.T, calls ...string) {
+	t.Helper()
 	expectedCount := len(calls)
 	actualCount := len(f.calls)
 	if expectedCount != actualCount {
@@ -139,33 +142,28 @@ func (f *fakeRunner) assertHasCallsUnordered(t *testing.T, calls ...string) {
 	}
 }
 
-func (f *fakeRunner) assertNoCalls(t *testing.T) {
-	callCount := len(f.calls)
-	if callCount > 0 {
-		t.Errorf("expected no calls, actual %d: %#v", callCount, f.calls)
-	}
+func (f *FakeRunner) AssertNoCalls(t *testing.T) {
+	t.Helper()
+	f.assertCallCount(t, []string{}...)
 }
 
-func assertError(t *testing.T, err error) {
-	if err == nil {
-		t.Errorf("expected error, got nil")
-	}
-}
-
-func assertNotError(t *testing.T, err error) {
-	if err != nil {
-		t.Errorf("expected nil, got %#v", err)
+func (f *FakeRunner) assertCallCount(t *testing.T, calls ...string) {
+	t.Helper()
+	expectedCount := len(calls)
+	actualCount := len(f.calls)
+	if expectedCount != actualCount {
+		t.Fatalf("expected %d call(s), actual %d: %#v", expectedCount, actualCount, f.calls)
 	}
 }
 
 // Create fake repos
 
-func defaultFakeRepo() (*Repo, *fakeRunner) {
+func defaultFakeRepo() (Repo, *FakeRunner) {
 	return fakeRepo(".", "git@github.com:Foo/bar.git", "main")
 }
 
-func fakeRepo(path string, remote string, ref string) (*Repo, *fakeRunner) {
-	runner := &fakeRunner{}
+func fakeRepo(path string, remote string, ref string) (Repo, *FakeRunner) {
+	runner := &FakeRunner{}
 	r := NewRepo(RepoConfig{Path: path, Remote: remote, Ref: ref}, runner)
 	return r, runner
 }
