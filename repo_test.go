@@ -119,7 +119,7 @@ func (f *FakeRunner) Run(name string, args ...string) error {
 
 func (f *FakeRunner) AssertHasCalls(t *testing.T, calls ...string) {
 	t.Helper()
-	f.assertCallCount(t, calls...)
+	f.assertCallCount(t, calls)
 	for i, expectedCall := range calls {
 		actualCall := f.calls[i]
 		if expectedCall != actualCall {
@@ -144,10 +144,10 @@ func (f *FakeRunner) AssertHasCallsUnordered(t *testing.T, calls ...string) {
 
 func (f *FakeRunner) AssertNoCalls(t *testing.T) {
 	t.Helper()
-	f.assertCallCount(t, []string{}...)
+	f.assertCallCount(t, []string{})
 }
 
-func (f *FakeRunner) assertCallCount(t *testing.T, calls ...string) {
+func (f *FakeRunner) assertCallCount(t *testing.T, calls []string) {
 	t.Helper()
 	expectedCount := len(calls)
 	actualCount := len(f.calls)
