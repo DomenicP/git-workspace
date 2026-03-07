@@ -164,6 +164,6 @@ func defaultFakeRepo() (Repo, *FakeRunner) {
 
 func fakeRepo(path string, remote string, ref string) (Repo, *FakeRunner) {
 	runner := &FakeRunner{}
-	r := NewRepo(RepoConfig{Path: path, Remote: remote, Ref: ref}, runner)
+	r := Repo{RepoConfig{path, remote, ref}, runner}
 	return r, runner
 }

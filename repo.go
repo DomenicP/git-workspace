@@ -12,14 +12,6 @@ type Repo struct {
 	runner Runner
 }
 
-// NewRepo creates a repository instance with the provided configuration and runner.
-func NewRepo(cfg RepoConfig, runner Runner) Repo {
-	return Repo{
-		RepoConfig: cfg,
-		runner:     runner,
-	}
-}
-
 // PathExist returns true if the repository path exists, and false otherwise.
 func (r Repo) PathExist() bool {
 	_, err := os.Stat(r.Path)

@@ -78,7 +78,7 @@ type Config struct {
 func printUsage(rc int) {
 	tmpl := template.Must(template.New("usage").Parse(Usage))
 	if err := tmpl.Execute(os.Stdout, map[string]any{"ConfigFile": ConfigFile}); err != nil {
-		panic(err)
+		panic("could not print usage: " + err.Error())
 	}
 	os.Exit(rc)
 }
@@ -114,7 +114,7 @@ func main() {
 	// Iterate over configured repositories.
 	runner := CommandRunner{}
 	for _, r := range cfg.Repos {
-		repo := NewRepo(r, runner)
+		repo := Repo{r, runner}
 
 		// Special check for clone command: if the repo is not yet cloned, the directory will
 		// not exist.
@@ -134,7 +134,9 @@ func main() {
 		}
 
 		printHeader(repo.Path)
-		must(os.Chdir(repo.Path), "chdir failed")
+		if err := os.Chdir(repo.Path); err != nil {
+			panic("could not change directory: " + err.Error())
+		}
 
 		switch cmd {
 		case "checkout", "co":
@@ -197,7 +199,9 @@ func loadConfig(configFile string) (*Config, error) {
 
 	// Convert relative paths to absolute.
 	cwd, err := os.Getwd()
-	must(err, "could not change directories")
+	if err != nil {
+		panic("could not change directory: " + err.Error())
+	}
 	for i := range cfg.Repos {
 		if !filepath.IsAbs(cfg.Repos[i].Path) {
 			cfg.Repos[i].Path = filepath.Clean(filepath.Join(cwd, cfg.Repos[i].Path))
@@ -205,12 +209,6 @@ func loadConfig(configFile string) (*Config, error) {
 	}
 
 	return cfg, nil
-}
-
-func must(err error, msg string) {
-	if err != nil {
-		panic(msg + ": " + err.Error())
-	}
 }
 
 func printHeader(msg string) {
