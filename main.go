@@ -26,7 +26,7 @@ Commands:
     clone                   Ensure all repositories are cloned
     config                  Apply workspace git config settings to each repo
     ff, fast-forward        Attempt to fast-forward each repo
-    fetch                   Fetch each repo from origin
+    fe, fetch               Fetch each repo from origin
     help                    Print usage information and exit
     push                    Attempt to push each repo
     run <cmd>               Run an arbitrary shell command in each repo
@@ -145,7 +145,7 @@ func main() {
 			err = repo.Config(cfg.GitConfig)
 		case "fast-forward", "ff":
 			err = repo.FastForward()
-		case "fetch":
+		case "fetch", "fe":
 			err = repo.Fetch()
 		case "push":
 			err = repo.Push()
